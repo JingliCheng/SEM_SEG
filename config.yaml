@@ -1,0 +1,34 @@
+Train:
+  batch_size: 2 # 128
+  learning_rate: 0.001 # 0.0001
+  reg: 0.0001
+  epochs: 1000
+  steps: [300, 800]
+  warmup: 5
+  momentum: 0.9
+  droprate: 0.1
+  cardinality: 16
+  re_calculate_mean_std: False
+  deep_supervision: True
+
+dataset:
+  name: automatic-sem-image-segmentation
+  url: 'https://github.com/BAMresearch/automatic-sem-image-segmentation/tree/master'
+  path_to_images: 'Datasets/TiO2/train/img/'
+  path_to_masks: 'Datasets/TiO2/train/mask/'
+  path_to_images_val: 'Datasets/TiO2/val/img/'
+  path_to_masks_val: 'Datasets/TiO2/val/mask/'
+  path_to_images_test: 'Datasets/TiO2/test/img/'
+  path_to_masks_test: 'Datasets/TiO2/test/mask/'
+
+network:
+  model: UNetPP # UNetPP or SimpleUNet # TwoLayerNet or VanillaCNN or squeeze_next or ResNet-32
+  save_best: True
+
+# data:
+#   imbalance: regular # regular or imbalance
+#   reweight: True #True
+#   beta: 0.9999 # 0.9999
+
+# loss:
+#   loss_type: CE # CE or Focal
