@@ -42,15 +42,14 @@ class SegmentationDataset(Dataset):
         mask = Image.open(mask_path).convert("L")  # Load mask as grayscale
 
         to_tensor = transforms.ToTensor()
+        image = to_tensor(image)
+        mask = to_tensor(mask)
         if self.transforms:
             for transform in self.transforms:
                 image, mask = transform(image, mask)
         if self.transforms_image:
             for transform in self.transforms_image:
                 image = transform(image)
-        else:
-            image = to_tensor(image)
-        mask = to_tensor(mask)
         return image, mask
     
     # def image_to_tensor(self, image):
@@ -145,7 +144,6 @@ def train(epoch, data_loader, model, optimizer, criterion):
         
         if torch.cuda.is_available():
             data = data.cuda()
-            print(data.shape)
             target = target.cuda()
 
         optimizer.zero_grad() # Clear the gradients
@@ -182,7 +180,6 @@ def validate(epoch, val_loader, model, criterion):
 
         if torch.cuda.is_available():
             data = data.cuda()
-            print(data.shape)
             target = target.cuda()
 
         with torch.no_grad():
@@ -322,9 +319,10 @@ def main():
         mean = 0.1585
         std = 0.1535
 
-    image_manipulation = augmentation.SEMImageTransform(output_size=(768,1024))
+    image_geo_aug = augmentation.GeometricTransform(output_size=(768,1024))
+    image_color_aug = augmentation.ColorTransform()
+    image_manipulation = [image_geo_aug, image_color_aug]
     image_norm = transforms.Compose([
-        transforms.ToTensor(),
         transforms.Normalize(mean=[mean], std=[std]),
     ])
 
@@ -339,7 +337,7 @@ def main():
         print('Using GPU')
 
     train_dataset = SegmentationDataset(args.path_to_images, args.path_to_masks, 
-                                        transforms=[image_manipulation], transforms_image=[image_norm])
+                                        transforms=image_manipulation, transforms_image=[image_norm])
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
     val_dataset = SegmentationDataset(args.path_to_images_val, args.path_to_masks_val, 
