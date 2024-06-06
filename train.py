@@ -11,11 +11,10 @@ import os
 # import pandas as pd
 from PIL import Image
 import torch
-import torchvision
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 import torch.optim as optim
-from torchvision import transforms
+import torchvision.transforms.v2 as transforms
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 
@@ -25,10 +24,10 @@ import augmentation
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, transforms=None, transforms_image=None):
+    def __init__(self, image_dir, mask_dir, transforms_both=None, transforms_image=None):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
-        self.transforms = transforms
+        self.transforms_both = transforms_both
         self.transforms_image = transforms_image
         self.images = [img for img in os.listdir(image_dir) if img.endswith('.tif')]
 
@@ -41,19 +40,22 @@ class SegmentationDataset(Dataset):
         image = Image.open(img_path).convert("L")
         mask = Image.open(mask_path).convert("L")  # Load mask as grayscale
 
-        to_tensor = transforms.ToTensor()
+        to_tensor = transforms.Compose([
+            transforms.ToImage(), 
+            transforms.ToDtype(torch.float32, scale=True)
+        ])
         image = to_tensor(image)
         mask = to_tensor(mask)
-        if self.transforms:
-            for transform in self.transforms:
+        if self.transforms_both:
+            for transform in self.transforms_both:
                 image, mask = transform(image, mask)
+        # image = to_tensor(image)
+        # mask = to_tensor(mask)
         if self.transforms_image:
             for transform in self.transforms_image:
                 image = transform(image)
         return image, mask
-    
-    # def image_to_tensor(self, image):
-    #     return transforms.ToTensor()(image)
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -165,6 +167,7 @@ def train(epoch, data_loader, model, optimizer, criterion):
                    'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                    'IoU {IoU.val:.4f} ({IoU.avg:.4f})\t')
                   .format(epoch, idx, len(data_loader), iter_time=iter_time, loss=losses, IoU=acc))
+            visualize_predictions(data, target, out, epoch, idx)
         
         return losses.avg, acc.avg
 
@@ -199,7 +202,8 @@ def validate(epoch, val_loader, model, criterion):
                    'Time {iter_time.val:.3f} ({iter_time.avg:.3f})\t')
                   .format(epoch, idx, len(val_loader), iter_time=iter_time, loss=losses, IoU=acc))
             if epoch % 10 == 0:
-                visualize_predictions(data, target, out, epoch, idx)
+                # visualize_predictions(data, target, out, epoch, idx)
+                pass
 
     print("IoU: {:.4f}".format(acc.avg))
     print("* IoU @1: {IoU.avg:.4f}".format(IoU=acc))
@@ -321,7 +325,7 @@ def main():
 
     image_geo_aug = augmentation.GeometricTransform(output_size=(768,1024))
     image_color_aug = augmentation.ColorTransform()
-    image_manipulation = [image_geo_aug, image_color_aug]
+    image_manipulation = [image_geo_aug, ]
     image_norm = transforms.Compose([
         transforms.Normalize(mean=[mean], std=[std]),
     ])
@@ -337,15 +341,15 @@ def main():
         print('Using GPU')
 
     train_dataset = SegmentationDataset(args.path_to_images, args.path_to_masks, 
-                                        transforms=image_manipulation, transforms_image=[image_norm])
+                                        transforms_both=image_manipulation, transforms_image=[image_norm])
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
     val_dataset = SegmentationDataset(args.path_to_images_val, args.path_to_masks_val, 
-                                      transforms=None, transforms_image=[image_norm])
+                                      transforms_both=None, transforms_image=[image_norm])
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
     test_dataset = SegmentationDataset(args.path_to_images_test, args.path_to_masks_test, 
-                                       transforms=None, transforms_image=[image_norm])
+                                       transforms_both=None, transforms_image=[image_norm])
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
     # Loss Function and Optimizer
