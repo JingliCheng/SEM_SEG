@@ -49,8 +49,7 @@ class SegmentationDataset(Dataset):
         if self.transforms_both:
             for transform in self.transforms_both:
                 image, mask = transform(image, mask)
-        # image = to_tensor(image)
-        # mask = to_tensor(mask)
+        # print(image.min(), image.max(), image.mean(), image.std())
         if self.transforms_image:
             for transform in self.transforms_image:
                 image = transform(image)
@@ -324,11 +323,12 @@ def main():
         std = 0.1535
 
     image_geo_aug = augmentation.GeometricTransform(output_size=(768,1024))
-    image_color_aug = augmentation.ColorTransform()
-    image_manipulation = [image_geo_aug, ]
+    image_color_aug = augmentation.ColorTransform(scale=(0.01, 0.05))
     image_norm = transforms.Compose([
         transforms.Normalize(mean=[mean], std=[std]),
     ])
+    transforms_both =  None
+    transforms_image = [image_norm, ]
 
     # UNetPP or SimpleUNet
     if args.model == 'SimpleUNet':
@@ -341,15 +341,15 @@ def main():
         print('Using GPU')
 
     train_dataset = SegmentationDataset(args.path_to_images, args.path_to_masks, 
-                                        transforms_both=image_manipulation, transforms_image=[image_norm])
+                                        transforms_both=transforms_both, transforms_image=transforms_image)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
     val_dataset = SegmentationDataset(args.path_to_images_val, args.path_to_masks_val, 
-                                      transforms_both=None, transforms_image=[image_norm])
+                                      transforms_both=None, transforms_image=transforms_image)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
     test_dataset = SegmentationDataset(args.path_to_images_test, args.path_to_masks_test, 
-                                       transforms_both=None, transforms_image=[image_norm])
+                                       transforms_both=None, transforms_image=transforms_image)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
     # Loss Function and Optimizer
